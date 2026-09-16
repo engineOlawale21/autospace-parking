@@ -8,7 +8,6 @@ import { Container } from '@autospace/ui/src/components/atoms/Container'
 import { Header } from '@autospace/ui/src/components/organisms/Header'
 import { IsAdmin } from '@autospace/ui/src/components/organisms/IsAdmin'
 
-
 export const metadata: Metadata = {
   title: {
     default: 'Autospace Operations',
