@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package autospace.payment.v1;
+
+import "autospace/common/v1/types.proto";
+
+option go_package = "github.com/autospace/contracts/gen/go/autospace/payment/v1;paymentv1";
+
+service PaymentService {
+  rpc AuthorizePayment(AuthorizePaymentRequest) returns (AuthorizePaymentResponse);
+  rpc CapturePayment(CapturePaymentRequest) returns (CapturePaymentResponse);
+  rpc CancelAuthorization(CancelAuthorizationRequest) returns (CancelAuthorizationResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (GetPaymentResponse);
+}
+
+message AuthorizePaymentRequest {
+  string customer_id = 1;
+  string booking_id = 2;
+  string payment_method_id = 3;
+  autospace.common.v1.Money amount = 4;
+  string idempotency_key = 5;
+  string return_url = 6;
+}
+
+message AuthorizePaymentResponse {
+  string payment_id = 1;
+  string status = 2;
+  string client_action_secret = 3;
+}
+
+message CapturePaymentRequest {
+  string payment_id = 1;
+  autospace.common.v1.Money amount = 2;
+  string idempotency_key = 3;
+}
+
+message CapturePaymentResponse {
+  string payment_id = 1;
+  string status = 2;
+}
+
+message CancelAuthorizationRequest {
+  string payment_id = 1;
+  string reason_code = 2;
+  string idempotency_key = 3;
+}
+
+message CancelAuthorizationResponse {
+  string payment_id = 1;
+  string status = 2;
+}
+
+message RefundPaymentRequest {
+  string payment_id = 1;
+  autospace.common.v1.Money amount = 2;
+  string reason_code = 3;
+  string requested_by = 4;
+  string idempotency_key = 5;
+}
+
+message RefundPaymentResponse {
+  string refund_id = 1;
+  string payment_id = 2;
+  string status = 3;
+}
+
+message GetPaymentRequest {
+  string payment_id = 1;
+}
+
+message GetPaymentResponse {
+  string payment_id = 1;
+  string booking_id = 2;
+  autospace.common.v1.Money authorized_amount = 3;
+  autospace.common.v1.Money captured_amount = 4;
+  autospace.common.v1.Money refunded_amount = 5;
+  string status = 6;
+}
+

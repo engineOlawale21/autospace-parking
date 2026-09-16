@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package autospace.availability.v1;
+
+import "autospace/common/v1/types.proto";
+
+option go_package = "github.com/autospace/contracts/gen/go/autospace/availability/v1;availabilityv1";
+
+service AvailabilityService {
+  rpc GetQuote(GetQuoteRequest) returns (GetQuoteResponse);
+  rpc AcquireHold(AcquireHoldRequest) returns (AcquireHoldResponse);
+  rpc ConfirmHold(ConfirmHoldRequest) returns (ConfirmHoldResponse);
+  rpc ReleaseHold(ReleaseHoldRequest) returns (ReleaseHoldResponse);
+  rpc GetAvailability(GetAvailabilityRequest) returns (GetAvailabilityResponse);
+}
+
+enum ParkingProduct {
+  PARKING_PRODUCT_UNSPECIFIED = 0;
+  PARKING_PRODUCT_HOURLY_DAILY = 1;
+  PARKING_PRODUCT_MONTHLY = 2;
+  PARKING_PRODUCT_AIRPORT = 3;
+  PARKING_PRODUCT_EVENT = 4;
+}
+
+message VehicleDimensions {
+  uint32 length_mm = 1;
+  uint32 width_mm = 2;
+  uint32 height_mm = 3;
+}
+
+message GetQuoteRequest {
+  string listing_id = 1;
+  string parking_space_id = 2;
+  autospace.common.v1.TimeRange time_range = 3;
+  ParkingProduct product = 4;
+  string vehicle_type = 5;
+  VehicleDimensions vehicle_dimensions = 6;
+  string promotion_code = 7;
+  string customer_id = 8;
+}
+
+message QuoteLine {
+  string code = 1;
+  string label = 2;
+  autospace.common.v1.Money amount = 3;
+}
+
+message GetQuoteResponse {
+  string quote_id = 1;
+  string pricing_version = 2;
+  autospace.common.v1.Money total = 3;
+  repeated QuoteLine lines = 4;
+  int64 expires_at_unix_ms = 5;
+  bool available = 6;
+  string unavailable_reason_code = 7;
+}
+
+message AcquireHoldRequest {
+  string quote_id = 1;
+  string customer_id = 2;
+  string idempotency_key = 3;
+}
+
+message AcquireHoldResponse {
+  string hold_id = 1;
+  string quote_id = 2;
+  int64 expires_at_unix_ms = 3;
+  string status = 4;
+}
+
+message ConfirmHoldRequest {
+  string hold_id = 1;
+  string booking_id = 2;
+  string idempotency_key = 3;
+}
+
+message ConfirmHoldResponse {
+  string hold_id = 1;
+  string status = 2;
+}
+
+message ReleaseHoldRequest {
+  string hold_id = 1;
+  string reason_code = 2;
+  string idempotency_key = 3;
+}
+
+message ReleaseHoldResponse {
+  string hold_id = 1;
+  string status = 2;
+}
+
+message GetAvailabilityRequest {
+  repeated string parking_space_ids = 1;
+  autospace.common.v1.TimeRange time_range = 2;
+  ParkingProduct product = 3;
+}
+
+message AvailabilityItem {
+  string parking_space_id = 1;
+  uint32 available_capacity = 2;
+  bool available = 3;
+}
+
+message GetAvailabilityResponse {
+  repeated AvailabilityItem items = 1;
+}
+

@@ -43,11 +43,16 @@ Status values:
   dependencies.
 - **Active** — Verify TypeScript formatting, lint, unit tests, and
   production builds after the dependency graph is installed.
-- **Active** — Implement the first real synchronous gRPC path between the
-  NestJS gateway and Go availability service.
-- **Active** — Add PostgreSQL persistence and Redis-backed expiry coordination
-  for availability holds.
-- **Active** — Add the outbox relay and Kafka consumer health/lag foundation.
+- **Partial** — Generated Go contract bindings and exposed the first real
+  availability gRPC method (`GetAvailability`) with focused tests. The
+  NestJS gateway client, deadlines, and correlation metadata remain active.
+- **Partial** — Add PostgreSQL hold persistence and Redis-backed expiry
+  coordination primitives for availability holds. The running hold command
+  path and restart/integration tests are still missing.
+- **Partial** — Added a scheduled transactional outbox relay, KafkaJS
+  publisher, opt-in consumer group, and PostgreSQL consumed-event ledger for
+  idempotency. Concrete event handlers, retry/dead-letter topics, health, and
+  lag monitoring remain.
 
 ### Blockers
 
@@ -68,6 +73,11 @@ Milestone 1 closes only when all of the following are true:
   for disposable coordination, and emits an outbox event;
 - Kafka publishes that event and a consumer processes it idempotently;
 - all release images build and pass health-based Compose smoke tests.
+
+The current implementation does not yet satisfy this exit gate. The Go
+availability gRPC endpoint, persistence, Redis coordinator, and Kafka
+publisher have focused coverage, but the NestJS gateway client, consumer
+path, and container integration checks are not implemented or verified.
 
 ## Milestone 2 — identity, organisations, and permissions
 

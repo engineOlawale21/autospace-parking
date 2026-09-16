@@ -1,0 +1,6 @@
+{
+  "name": "@autospace/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Versioned protobuf, OpenAPI, and event contracts for Autospace services"
+}
