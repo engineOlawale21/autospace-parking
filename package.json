@@ -35,8 +35,8 @@
   "author": "",
   "license": "UNLICENSED",
   "devDependencies": {
-    "prettier": "^2.3.2",
-    "typescript": "^5.4.3",
-    "nx": "18.3.4"
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2",
+    "nx": "23.2.1"
   }
 }
