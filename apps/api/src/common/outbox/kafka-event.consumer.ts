@@ -73,7 +73,10 @@ export class KafkaEventConsumer implements OnModuleInit, OnModuleDestroy {
       throw new Error('Kafka event requires id and type')
     }
 
-    const existing = await this.consumedEvents.findOneBy({ eventId })
+    const existing = await this.consumedEvents.findOneBy({
+      eventId,
+      consumerGroup: this.groupId,
+    })
     if (existing) return
 
     await this.handler(event)

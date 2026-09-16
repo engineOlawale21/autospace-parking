@@ -30,6 +30,7 @@ type Hold struct {
 	Status         HoldStatus
 	BookingID      string
 	ReleaseReason  string
+	IdempotencyKey string
 }
 
 func (hold *Hold) EffectiveStatus(now time.Time) HoldStatus {

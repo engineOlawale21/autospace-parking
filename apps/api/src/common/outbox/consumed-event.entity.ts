@@ -8,7 +8,7 @@ export class ConsumedEvent {
   @Column({ name: 'event_type', type: 'varchar', length: 200 })
   eventType: string
 
-  @Column({ name: 'consumer_group', type: 'varchar', length: 200 })
+  @PrimaryColumn({ name: 'consumer_group', type: 'varchar', length: 200 })
   consumerGroup: string
 
   @CreateDateColumn({ name: 'processed_at', type: 'timestamptz' })

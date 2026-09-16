@@ -15,7 +15,12 @@ export class CreateConsumedEvents1726448400000 implements MigrationInterface {
             isPrimary: true,
           },
           { name: 'event_type', type: 'varchar', length: '200' },
-          { name: 'consumer_group', type: 'varchar', length: '200' },
+          {
+            name: 'consumer_group',
+            type: 'varchar',
+            length: '200',
+            isPrimary: true,
+          },
           {
             name: 'processed_at',
             type: 'timestamptz',

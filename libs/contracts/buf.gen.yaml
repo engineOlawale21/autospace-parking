@@ -9,11 +9,4 @@ plugins:
     out: gen/go
     opt:
       - paths=source_relative
-  - remote: buf.build/community/stephenh-ts-proto:v2.6.1
-    out: gen/ts
-    opt:
-      - nestJs=true
-      - outputServices=grpc-js
-      - useExactTypes=false
-      - forceLong=string
-
+

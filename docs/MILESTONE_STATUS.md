@@ -41,14 +41,13 @@ Status values:
 
 - **Done** — Complete and verify the frozen Yarn lockfile for the TypeORM
   dependencies.
-- **Active** — Verify TypeScript formatting, lint, unit tests, and
-  production builds after the dependency graph is installed.
-- **Partial** — Generated Go contract bindings and exposed the first real
-  availability gRPC method (`GetAvailability`) with focused tests. The
-  NestJS gateway client, deadlines, and correlation metadata remain active.
-- **Partial** — Add PostgreSQL hold persistence and Redis-backed expiry
-  coordination primitives for availability holds. The running hold command
-  path and restart/integration tests are still missing.
+- **Done** — TypeScript formatting, lint, unit tests, and production builds
+  pass locally and in GitHub Actions.
+- **Done** — Generated Go contract bindings and exposed availability through
+  the NestJS gateway with a deadline and correlation metadata.
+- **Active** — PostgreSQL-backed quote and hold commands, Redis coordination,
+  and transactional outbox writes are implemented. Restart and integration
+  verification is running in the Milestone 1 CI smoke gate.
 - **Partial** — Added a scheduled transactional outbox relay, KafkaJS
   publisher, opt-in consumer group, and PostgreSQL consumed-event ledger for
   idempotency. Concrete event handlers, retry/dead-letter topics, health, and
@@ -56,8 +55,8 @@ Status values:
 
 ### Blockers
 
-- **Blocked** — Container build and integration verification until Docker
-  Desktop/Engine is running.
+- **Blocked** — Local Docker Engine access is unavailable; the isolated
+  GitHub Actions integration job is the current verification environment.
 
 ### Exit gate
 
