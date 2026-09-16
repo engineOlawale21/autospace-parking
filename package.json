@@ -1,7 +1,7 @@
 {
   "name": "autospace",
   "version": "1.0.0",
-  "description": "",
+  "description": "Containerized multi-sided parking marketplace platform",
   "private": true,
   "workspaces": {
     "packages": [
@@ -14,23 +14,29 @@
     ]
   },
   "scripts": {
+    "docker:up": "docker compose --env-file .env.docker up --build",
+    "docker:down": "docker compose --env-file .env.docker down",
+    "docker:infra": "docker compose --env-file .env.docker -f compose.yaml -f compose.infrastructure.yaml up -d",
+    "docker:ps": "docker compose --env-file .env.docker ps",
+    "docker:logs": "docker compose --env-file .env.docker logs -f",
+    "docker:config": "docker compose --env-file .env.docker config --quiet",
+    "contracts:lint": "docker compose --profile tools run --rm contracts-lint",
+    "contracts:generate": "docker compose --profile tools run --rm contracts-generate",
     "format": "prettier  \"{apps,libs}/**/*.{ts,tsx,js,json}\" --ignore-path .gitignore",
     "format:check": "yarn format --check",
     "format:write": "yarn format --write",
     "tsc": "yarn nx run-many -t tsc",
     "lint": "yarn nx run-many -t lint",
     "build": "yarn nx run-many -t build",
-    "validate": "yarn format:write && yarn tsc && yarn lint && yarn build",
-    "prepare": "husky install",
+    "validate": "yarn format:check && yarn tsc && yarn lint && yarn build",
     "cloc": "npx cloc --exclude-dir=node_modules,dist,build,yarn.lock,package.json,generated.tsx,.next,.nx ."
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "devDependencies": {
     "prettier": "^2.3.2",
     "typescript": "^5.4.3",
-    "husky": "^8.0.0",
     "nx": "18.3.4"
   }
 }
