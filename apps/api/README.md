@@ -1,15 +1,15 @@
 # Autospace API
 
-Transitional NestJS gateway and legacy API for the Autospace marketplace. It
-currently exposes REST and GraphQL surfaces while capabilities are extracted
-into independently deployable services behind a public gateway.
+NestJS API gateway/BFF for the Autospace marketplace. It exposes public HTTP
+routes and invokes independently deployable domain services through versioned
+gRPC contracts.
 
-## Transitional responsibilities
+## Responsibilities
 
 - Authentication and role/permission enforcement
-- Users, customers, providers, managers, valets, and admins
-- Parking inventory, bookings, reviews, and operational timelines
-- Stripe payment integration
+- HTTP authentication and request validation
+- Request composition across internal services
+- Correlation metadata and consistent public errors
 - Transactional outbox for Kafka events
 
 Do not add new business capabilities to this legacy boundary. New capabilities
@@ -25,8 +25,7 @@ From the repository root:
 docker compose --env-file .env.docker up --build api
 ```
 
-Swagger is served at `http://localhost:3000`; GraphQL compatibility is at
-`http://localhost:3000/graphql`; health is at `http://localhost:3000/health`.
+Health is served at `http://localhost:3000/health`.
 
 ## Migrations
 
@@ -34,9 +33,8 @@ Swagger is served at `http://localhost:3000`; GraphQL compatibility is at
 docker compose --env-file .env.docker --profile tools run --rm migrate
 ```
 
-TypeORM synchronization and automatic migration-on-startup are disabled. The
-repository still contains legacy Prisma code during controlled migration; do
-not add new Prisma models or generated modules.
+TypeORM synchronization and automatic migration-on-startup are disabled.
+Prisma is not part of this service.
 
 See [Architecture](../../docs/ARCHITECTURE.md) and
 [Development](../../docs/DEVELOPMENT.md).
