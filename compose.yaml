@@ -1,0 +1,333 @@
+name: autospace
+
+x-node-app: &node-app
+  build:
+    context: .
+    target: development
+  restart: unless-stopped
+  init: true
+  networks:
+    - frontend
+    - backend
+  volumes:
+    - .:/workspace
+    - node_modules:/workspace/node_modules
+
+x-next-environment: &next-environment
+  NEXT_PUBLIC_API_URL: http://localhost:3000
+  NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-development-secret-change-me}
+  AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-autospace}
+      POSTGRES_USER: ${POSTGRES_USER:-autospace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autospace-local-password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend
+
+  kafka:
+    image: apache/kafka:3.9.1
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: CONTROLLER://:9093,INTERNAL://:29092,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:${KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - backend
+
+  kafka-init:
+    image: apache/kafka:3.9.1
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092
+        --create --if-not-exists --topic marketplace.listing-events.v1
+        --partitions 3 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092
+        --create --if-not-exists --topic booking.booking-events.v1
+        --partitions 3 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092
+        --create --if-not-exists --topic finance.payment-events.v1
+        --partitions 3 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092
+        --create --if-not-exists --topic platform.dead-letter.v1
+        --partitions 1 --replication-factor 1
+    networks:
+      - backend
+
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-autospace}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-autospace-local-password}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - minio_data:/data
+    networks:
+      - backend
+
+  api:
+    <<: *node-app
+    command: ["yarn", "workspace", "@autospace/api", "dev"]
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-autospace}:${POSTGRES_PASSWORD:-autospace-local-password}@postgres:5432/${POSTGRES_DB:-autospace}?schema=public
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:29092
+      S3_ENDPOINT: http://minio:9000
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_SUCCESS_URL: http://localhost:3000/stripe/success?session_id={CHECKOUT_SESSION_ID}
+      STRIPE_CANCEL_URL: http://localhost:3001/booking-failed
+      BOOKINGS_REDIRECT_URL: http://localhost:3001/bookings
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    <<: *node-app
+    profiles: ["tools"]
+    command: ["yarn", "workspace", "@autospace/api", "migration:run"]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-autospace}:${POSTGRES_PASSWORD:-autospace-local-password}@postgres:5432/${POSTGRES_DB:-autospace}?schema=public
+      DATABASE_APPLICATION_NAME: autospace-migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  contracts-lint:
+    image: bufbuild/buf:1.47.2
+    profiles: ["tools"]
+    working_dir: /workspace/libs/contracts
+    command: ["lint"]
+    volumes:
+      - .:/workspace
+
+  contracts-generate:
+    image: bufbuild/buf:1.47.2
+    profiles: ["tools"]
+    working_dir: /workspace/libs/contracts
+    command: ["generate"]
+    volumes:
+      - .:/workspace
+
+  web:
+    <<: *node-app
+    command: ["yarn", "workspace", "@autospace/web", "dev"]
+    environment:
+      <<: *next-environment
+      NEXTAUTH_URL: http://localhost:3001
+      NEXT_PUBLIC_PROVIDER_URL: http://localhost:3002/new-garage
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+    ports:
+      - "3001:3001"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  web-manager:
+    <<: *node-app
+    command: ["yarn", "workspace", "@autospace/web-manager", "dev"]
+    environment:
+      <<: *next-environment
+      NEXTAUTH_URL: http://localhost:3002
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+      NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:-}
+      NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: ${NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET:-}
+    ports:
+      - "3002:3002"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  web-valet:
+    <<: *node-app
+    command: ["yarn", "workspace", "@autospace/web-valet", "dev"]
+    environment:
+      <<: *next-environment
+      NEXTAUTH_URL: http://localhost:3003
+      NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+    ports:
+      - "3003:3003"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  web-admin:
+    <<: *node-app
+    command: ["yarn", "workspace", "@autospace/web-admin", "dev"]
+    environment:
+      <<: *next-environment
+      NEXTAUTH_URL: http://localhost:3004
+    ports:
+      - "3004:3004"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3004/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  search-service:
+    build:
+      context: apps/search-service
+    restart: unless-stopped
+    init: true
+    environment:
+      PORT: 8080
+      LOG_LEVEL: info
+      SHUTDOWN_TIMEOUT: 10s
+      DATABASE_URL: postgresql://${POSTGRES_USER:-autospace}:${POSTGRES_PASSWORD:-autospace-local-password}@postgres:5432/${POSTGRES_DB:-autospace}?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:29092
+    ports:
+      - "${SEARCH_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/search-service", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+
+  availability-service:
+    build:
+      context: apps/services/go/availability
+    restart: unless-stopped
+    init: true
+    environment:
+      PORT: 8081
+      DATABASE_URL: postgresql://${POSTGRES_USER:-autospace}:${POSTGRES_PASSWORD:-autospace-local-password}@postgres:5432/${POSTGRES_DB:-autospace}?sslmode=disable
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:29092
+    ports:
+      - "${AVAILABILITY_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/availability-service", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  minio_data:
+  node_modules:

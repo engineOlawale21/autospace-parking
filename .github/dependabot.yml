@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      node-dependencies:
+        patterns: ['*']
+  - package-ecosystem: gomod
+    directory: /apps/search-service
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /apps/services/go/availability
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

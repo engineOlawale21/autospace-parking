@@ -1,0 +1,15 @@
+services:
+  api:
+    profiles: ["applications"]
+  web:
+    profiles: ["applications"]
+  web-manager:
+    profiles: ["applications"]
+  web-valet:
+    profiles: ["applications"]
+  web-admin:
+    profiles: ["applications"]
+  search-service:
+    profiles: ["applications"]
+  availability-service:
+    profiles: ["applications"]

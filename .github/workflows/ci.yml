@@ -1,0 +1,82 @@
+name: Continuous integration
+
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node quality and build
+    if: ${{ hashFiles('apps/**/package.json', 'libs/**/package.json') != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - run: corepack enable
+      - run: yarn install --frozen-lockfile --network-timeout 600000
+      - run: yarn format:check
+      - run: yarn tsc
+      - run: yarn lint
+      - run: yarn workspace @autospace/api test --runInBand
+      - run: yarn build
+
+  go:
+    name: Go test (${{ matrix.service }})
+    if: ${{ hashFiles(format('{0}/go.mod', matrix.directory)) != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: search
+            directory: apps/search-service
+          - service: availability
+            directory: apps/services/go/availability
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+          cache-dependency-path: ${{ matrix.directory }}/go.mod
+      - name: Check Go formatting
+        shell: bash
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race -coverprofile=coverage.out ./...
+      - run: go build ./...
+
+  contracts:
+    name: Protobuf contracts
+    if: ${{ hashFiles('libs/contracts/proto/**/*.proto') != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint protobuf contracts
+        run: docker run --rm --volume "$PWD/libs/contracts:/workspace" --workdir /workspace bufbuild/buf:1.47.2 lint
+
+  containers:
+    name: Container configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.docker.example .env.docker
+      - run: docker compose --env-file .env.docker config --quiet
