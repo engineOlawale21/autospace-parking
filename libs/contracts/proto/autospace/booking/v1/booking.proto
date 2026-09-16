@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package autospace.booking.v1;
+
+import "autospace/common/v1/types.proto";
+
+option go_package = "github.com/autospace/contracts/gen/go/autospace/booking/v1;bookingv1";
+
+service BookingService {
+  rpc CreateBooking(CreateBookingRequest) returns (CreateBookingResponse);
+  rpc GetBooking(GetBookingRequest) returns (GetBookingResponse);
+  rpc CancelBooking(CancelBookingRequest) returns (CancelBookingResponse);
+}
+
+message CreateBookingRequest {
+  string customer_id = 1;
+  string quote_id = 2;
+  string vehicle_id = 3;
+  string payment_method_id = 4;
+  string idempotency_key = 5;
+  string client_return_url = 6;
+}
+
+message CreateBookingResponse {
+  string booking_id = 1;
+  string status = 2;
+  string payment_action_secret = 3;
+}
+
+message GetBookingRequest {
+  string booking_id = 1;
+  string requester_id = 2;
+}
+
+message GetBookingResponse {
+  string booking_id = 1;
+  string customer_id = 2;
+  string listing_id = 3;
+  string parking_space_id = 4;
+  autospace.common.v1.TimeRange time_range = 5;
+  autospace.common.v1.Money total = 6;
+  string status = 7;
+  int64 created_at_unix_ms = 8;
+}
+
+message CancelBookingRequest {
+  string booking_id = 1;
+  string requested_by = 2;
+  string reason_code = 3;
+  string idempotency_key = 4;
+}
+
+message CancelBookingResponse {
+  string booking_id = 1;
+  string status = 2;
+  autospace.common.v1.Money refund_amount = 3;
+}
+
