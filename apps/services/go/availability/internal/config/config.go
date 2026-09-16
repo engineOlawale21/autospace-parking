@@ -25,7 +25,7 @@ func FromEnv() (Config, error) {
 		Port:            envOrDefault("PORT", "8081"),
 		GrpcPort:        envOrDefault("GRPC_PORT", "9091"),
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
-		RedisURL:        os.Getenv("REDIS_URL"),
+		RedisURL:        envOrDefault("REDIS_URL", "redis://localhost:6379"),
 		Environment:     envOrDefault("APP_ENV", "development"),
 		ShutdownTimeout: shutdownTimeout,
 	}, nil

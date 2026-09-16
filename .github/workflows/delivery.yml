@@ -86,8 +86,10 @@ jobs:
         include:
           - image: search-service
             context: apps/search-service
+            dockerfile: apps/search-service/Dockerfile
           - image: availability-service
-            context: apps/services/go/availability
+            context: .
+            dockerfile: apps/services/go/availability/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -107,6 +109,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

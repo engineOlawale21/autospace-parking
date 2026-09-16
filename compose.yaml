@@ -104,13 +104,16 @@ services:
         --create --if-not-exists --topic finance.payment-events.v1
         --partitions 3 --replication-factor 1 &&
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092
+        --create --if-not-exists --topic availability.hold-events.v1
+        --partitions 3 --replication-factor 1 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092
         --create --if-not-exists --topic platform.dead-letter.v1
         --partitions 1 --replication-factor 1
     networks:
       - backend
 
   minio:
-    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    image: quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -137,6 +140,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-autospace}:${POSTGRES_PASSWORD:-autospace-local-password}@postgres:5432/${POSTGRES_DB:-autospace}?schema=public
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:29092
+      KAFKA_CONSUMER_ENABLED: "true"
+      KAFKA_CONSUMER_TOPICS: availability.hold-events.v1
       AVAILABILITY_GRPC_ADDRESS: availability-service:9091
       S3_ENDPOINT: http://minio:9000
       JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-me}
@@ -297,7 +302,8 @@ services:
 
   availability-service:
     build:
-      context: apps/services/go/availability
+      context: .
+      dockerfile: apps/services/go/availability/Dockerfile
     restart: unless-stopped
     init: true
     environment:

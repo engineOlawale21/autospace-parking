@@ -13,10 +13,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/autospace/availability-service/internal/application"
 	"github.com/autospace/availability-service/internal/config"
+	"github.com/autospace/availability-service/internal/coordination"
 	"github.com/autospace/availability-service/internal/grpcapi"
+	"github.com/autospace/availability-service/internal/persistence"
 	availabilityv1 "github.com/autospace/contracts/gen/go/autospace/availability/v1"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 )
 
@@ -42,6 +46,29 @@ func main() {
 	if database != nil {
 		defer database.Close()
 	}
+	if database == nil {
+		logger.Error("DATABASE_URL is required")
+		os.Exit(1)
+	}
+	if err := persistence.ApplySchema(context.Background(), database); err != nil {
+		logger.Error("availability schema migration failed", "error", err)
+		os.Exit(1)
+	}
+
+	redisOptions, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		logger.Error("invalid REDIS_URL", "error", err)
+		os.Exit(1)
+	}
+	redisClient := redis.NewClient(redisOptions)
+	defer redisClient.Close()
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		logger.Error("redis unavailable", "error", err)
+		os.Exit(1)
+	}
+	repository := persistence.NewHoldRepository(database)
+	coordinator := coordination.NewHoldCoordinator(redisClient, cfg.Environment)
+	holdService := application.NewHoldService(repository, coordinator)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", healthHandler("live"))
@@ -61,7 +88,7 @@ func main() {
 		os.Exit(1)
 	}
 	grpcServer := grpc.NewServer()
-	availabilityv1.RegisterAvailabilityServiceServer(grpcServer, grpcapi.Service{})
+	availabilityv1.RegisterAvailabilityServiceServer(grpcServer, grpcapi.NewService(repository, holdService))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
