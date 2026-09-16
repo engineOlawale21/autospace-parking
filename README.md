@@ -178,9 +178,9 @@ In progress:
 - New listing, availability, quote, booking, finance, and admin domains
 - Full marketplace search, checkout, provider, CMS, and finance experiences
 
-The existing Prisma code is temporary migration input. Do not create new
-Prisma models, migrations, or generated modules. New persistence work uses
-TypeORM and reviewed migrations.
+Prisma has been removed from the API foundation. NestJS persistence uses
+TypeORM and reviewed migrations; Go services use `pgx`/`sqlc` with versioned
+SQL migrations.
 
 The Go search endpoint currently reports `501 Not Implemented`; health and
 container lifecycle are implemented, while the PostGIS projection is the next
