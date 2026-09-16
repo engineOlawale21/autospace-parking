@@ -121,17 +121,12 @@ Unit inventory uses non-overlap constraints. Capacity inventory uses an
 append-only capacity ledger. Application checks improve errors but database
 constraints protect correctness under concurrency.
 
-## Persistence migration
+## Persistence
 
-The repository still contains Prisma-generated models and services from the
-prototype. Migration is module-by-module:
-
-1. Baseline the existing table without recreating it.
-2. Add a hand-written TypeORM entity and repository adapter.
-3. Add repository integration and API parity tests.
-4. Move the whole aggregate to the new repository—never dual-write it.
-5. Remove that module's Prisma imports and generated DTO coupling.
-6. Remove Prisma entirely after the last aggregate migrates.
+Prisma has been removed from the API foundation. NestJS services use TypeORM
+repositories and Go services use `pgx`/`sqlc`; each service owns its schema and
+versioned migrations. Cross-service data access happens through gRPC contracts,
+not by querying another service's tables.
 
 NestJS tables use TypeORM migrations; Go services use versioned SQL migrations
 with `pgx`/`sqlc`. Automatic migrations on service startup and TypeORM
