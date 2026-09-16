@@ -1,7 +1,7 @@
 version: v2
 clean: true
 plugins:
-  - remote: buf.build/protocolbuffers/go:v1.36.6
+  - remote: buf.build/protocolbuffers/go:v1.36.5
     out: gen/go
     opt:
       - paths=source_relative
