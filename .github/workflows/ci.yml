@@ -16,7 +16,6 @@ concurrency:
 jobs:
   node:
     name: Node quality and build
-    if: ${{ hashFiles('apps/**/package.json', 'libs/**/package.json') != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -35,7 +34,6 @@ jobs:
 
   go:
     name: Go test (${{ matrix.service }})
-    if: ${{ hashFiles(format('{0}/go.mod', matrix.directory)) != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -64,7 +62,6 @@ jobs:
 
   contracts:
     name: Protobuf contracts
-    if: ${{ hashFiles('libs/contracts/proto/**/*.proto') != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
